@@ -8,10 +8,16 @@
 </head>
 <body>
   <main class="container">
-    <h1>산업재해 통계 검색</h1>
-    <p class="sub">고용노동부·공공데이터포털 공식 통계를 최신 경로 기준으로 조회합니다.</p>
+    <header class="hero">
+      <div>
+        <h1>산업재해 통계 검색</h1>
+        <p class="sub">고용노동부·공공데이터포털 공식 통계를 기반으로 상세 조건 검색</p>
+      </div>
+      <span class="badge-link">공식 통계 기반</span>
+    </header>
 
     <section class="panel">
+      <h2>검색 조건</h2>
       <div class="row">
         <label>통계 유형</label>
         <select id="source"></select>
@@ -70,7 +76,6 @@
         <button id="search">검색</button>
         <button id="refresh" class="ghost">최신정보 새로고침</button>
         <button id="trend" class="ghost">추이 조회</button>
-        <button id="go-settings" class="ghost" onclick="location.href='/settings.html'">서비스키 설정</button>
       </div>
     </section>
 

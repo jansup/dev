@@ -3,10 +3,12 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-let runtimeApiKeys = String(process.env.DATA_GO_KR_API_KEYS || process.env.DATA_GO_KR_API_KEY || '')
+const DEFAULT_API_KEY = '1be0054ad97dae05bf9877a8de89fb3f7f019f3e898eee30b8e94528b038cbc3';
+let runtimeApiKeys = String(process.env.DATA_GO_KR_API_KEYS || process.env.DATA_GO_KR_API_KEY || DEFAULT_API_KEY)
   .split(/[,\n]/)
   .map((x) => x.trim())
   .filter(Boolean);
+if (!runtimeApiKeys.length) runtimeApiKeys = [DEFAULT_API_KEY];
 let keyCursor = 0;
 
 const SOURCE_CONFIG = {
@@ -105,7 +107,7 @@ function pickLatestPath(spec) {
 
 async function fetchAllData(pathKey) {
   if (!runtimeApiKeys.length) {
-    throw new Error('DATA_GO_KR_API_KEY 환경변수가 필요합니다.');
+    throw new Error('서비스키가 없습니다.');
   }
 
   const all = [];
@@ -117,6 +119,7 @@ async function fetchAllData(pathKey) {
     url.searchParams.set('page', String(page));
     url.searchParams.set('perPage', String(perPage));
     url.searchParams.set('returnType', 'JSON');
+
     let json = null;
     let success = false;
     let lastErr = '';
@@ -235,23 +238,21 @@ function buildFilterOptions(type, normalized) {
 
 function buildTopChart(type, filtered) {
   if (type === 'industry') {
-    const list = [...filtered]
+    return [...filtered]
       .sort((a, b) => b.casualties - a.casualties)
       .slice(0, 10)
       .map((x) => ({ label: `${x.majorIndustry}/${x.minorIndustry}`, value: x.casualties }));
-    return list;
   }
 
-  const list = [...filtered]
+  return [...filtered]
     .sort((a, b) => b.casualties - a.casualties)
     .slice(0, 10)
     .map((x) => ({ label: x.category, value: x.casualties }));
-  return list;
 }
 
 function buildSeriesFromRow(row) {
   const years = listYearCandidatesFromRow(row);
-  const series = years.map((year) => {
+  return years.map((year) => {
     const casualtyField = pickYearField(row, year, /재해자수|^20\d{2}$/);
     const deathField = pickYearField(row, year, /사망자수/);
     return {
@@ -260,9 +261,7 @@ function buildSeriesFromRow(row) {
       deaths: deathField ? normalizeNumber(row[deathField]) : undefined,
     };
   });
-  return series;
 }
-
 
 app.get('/api/sources', async (_req, res) => {
   try {
@@ -287,44 +286,10 @@ app.get('/api/sources', async (_req, res) => {
   }
 });
 
-app.get('/api/config/key', (_req, res) => {
-  const maskedKeys = runtimeApiKeys.map((k, idx) => ({
-    id: idx + 1,
-    masked: `${k.slice(0, 6)}...${k.slice(-4)}`,
-  }));
-  res.json({ exists: runtimeApiKeys.length > 0, count: runtimeApiKeys.length, keys: maskedKeys });
-});
-
-app.post('/api/config/key', (req, res) => {
-  const raw = String(req.body?.apiKeys || req.body?.apiKey || '').trim();
-  const keys = raw
-    .split(/[,\n]/)
-    .map((x) => x.trim())
-    .filter(Boolean);
-
-  if (!keys.length) {
-    return res.status(400).json({ error: 'apiKey를 입력하세요.' });
-  }
-  runtimeApiKeys = [...new Set(keys)];
-  keyCursor = 0;
-  res.json({ ok: true, count: runtimeApiKeys.length });
-});
-
-app.delete('/api/config/key/:id', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1 || id > runtimeApiKeys.length) {
-    return res.status(400).json({ error: '삭제할 키 id가 올바르지 않습니다.' });
-  }
-  runtimeApiKeys.splice(id - 1, 1);
-  if (keyCursor >= runtimeApiKeys.length) keyCursor = 0;
-  res.json({ ok: true, count: runtimeApiKeys.length });
-});
-
 app.get('/api/stats', async (req, res) => {
   try {
     const source = String(req.query.source || '').trim();
     const cfg = SOURCE_CONFIG[source];
-
     if (!cfg) {
       return res.status(400).json({ error: 'source는 region|sex|age|industry 중 하나여야 합니다.' });
     }

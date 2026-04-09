@@ -27,21 +27,13 @@
 npm install
 ```
 
-2. 공공데이터포털 API 키 설정
-
-PowerShell:
-
-```powershell
-$env:DATA_GO_KR_API_KEY="발급받은_서비스키"
-```
-
-3. 실행
+2. 실행
 
 ```bash
 npm start
 ```
 
-4. 브라우저 접속
+3. 브라우저 접속
 
 - `http://localhost:3000`
 
@@ -53,5 +45,5 @@ npm start
 
 ## 참고
 
-- API 키는 공공데이터포털에서 해당 데이터 OpenAPI 활용신청 후 발급받아야 합니다.
+- 기본 서비스키가 코드에 설정되어 있습니다.
 - 현재 최신 통계 경로는 실행 시점 기준으로 자동 탐색됩니다.

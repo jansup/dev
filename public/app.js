@@ -51,6 +51,11 @@ function formatDateTime(iso) {
   return d.toLocaleString('ko-KR');
 }
 
+function setFriendlyError(prefix, err) {
+  const msg = String(err?.message || err || '');
+  metaEl.textContent = `${prefix}: ${msg}`;
+}
+
 function setDatalist(el, list) {
   el.innerHTML = (list || []).map((x) => `<option value="${x}"></option>`).join('');
 }
@@ -276,7 +281,7 @@ document.getElementById('search').addEventListener('click', async () => {
   try {
     await searchStats();
   } catch (e) {
-    metaEl.textContent = `오류: ${e.message}`;
+    setFriendlyError('오류', e);
     tbodyEl.innerHTML = '';
     drawBarChart([], '재해자수 상위 10개');
   }
@@ -287,7 +292,7 @@ document.getElementById('refresh').addEventListener('click', async () => {
     await loadSources();
     await searchStats();
   } catch (e) {
-    metaEl.textContent = `오류: ${e.message}`;
+    setFriendlyError('오류', e);
   }
 });
 
@@ -295,7 +300,7 @@ document.getElementById('trend').addEventListener('click', async () => {
   try {
     await loadTrend();
   } catch (e) {
-    metaEl.textContent = `오류: ${e.message}`;
+    setFriendlyError('오류', e);
   }
 });
 
@@ -306,6 +311,6 @@ document.getElementById('download').addEventListener('click', exportCsv);
     await loadSources();
     await searchStats();
   } catch (e) {
-    metaEl.textContent = `초기화 오류: ${e.message}`;
+    setFriendlyError('초기화 오류', e);
   }
 })();
