@@ -1,0 +1,95 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>산업재해 통계 검색</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>산업재해 통계 검색</h1>
+    <p class="sub">고용노동부·공공데이터포털 공식 통계를 최신 경로 기준으로 조회합니다.</p>
+
+    <section class="panel">
+      <div class="row">
+        <label>통계 유형</label>
+        <select id="source"></select>
+      </div>
+
+      <div class="row" id="year-row">
+        <label>연도</label>
+        <input id="year" type="number" placeholder="예: 2024" />
+      </div>
+
+      <div class="row" id="region-row" hidden>
+        <label>지역</label>
+        <input id="region" type="text" list="region-list" placeholder="예: 서울" />
+        <datalist id="region-list"></datalist>
+      </div>
+
+      <div class="row" id="sex-row" hidden>
+        <label>성별</label>
+        <select id="sex">
+          <option value="">전체</option>
+          <option value="남">남</option>
+          <option value="여">여</option>
+        </select>
+      </div>
+
+      <div class="row" id="age-row" hidden>
+        <label>연령대</label>
+        <input id="age" type="text" list="age-list" placeholder="예: 50대" />
+        <datalist id="age-list"></datalist>
+      </div>
+
+      <div class="row" id="major-row" hidden>
+        <label>대업종</label>
+        <input id="major" type="text" list="major-list" placeholder="예: 제조업" />
+        <datalist id="major-list"></datalist>
+      </div>
+
+      <div class="row" id="minor-row" hidden>
+        <label>중업종</label>
+        <input id="minor" type="text" list="minor-list" placeholder="예: 금속가공" />
+        <datalist id="minor-list"></datalist>
+      </div>
+
+      <div class="row" id="size-row" hidden>
+        <label>규모</label>
+        <input id="size" type="text" list="size-list" placeholder="예: 50인이상" />
+        <datalist id="size-list"></datalist>
+      </div>
+
+      <div class="row">
+        <label>키워드</label>
+        <input id="q" type="text" placeholder="부분검색" />
+      </div>
+
+      <div class="actions">
+        <button id="search">검색</button>
+        <button id="refresh" class="ghost">최신정보 새로고침</button>
+        <button id="trend" class="ghost">추이 조회</button>
+        <button id="go-settings" class="ghost" onclick="location.href='/settings.html'">서비스키 설정</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>조회 결과</h2>
+      <div id="meta" class="meta"></div>
+      <canvas id="chart" width="900" height="260" aria-label="재해자수 차트"></canvas>
+      <div class="actions compact">
+        <button id="download" class="ghost">CSV 다운로드</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="thead"></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

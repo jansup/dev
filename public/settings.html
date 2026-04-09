@@ -1,0 +1,91 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>서비스키 설정</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>서비스키 설정(다중)</h1>
+    <p class="sub">여러 서비스키를 줄바꿈 또는 콤마로 입력해 저장할 수 있습니다.</p>
+
+    <section class="panel">
+      <div id="status" class="meta"></div>
+      <div class="row">
+        <label>서비스키들</label>
+        <textarea id="api-keys" rows="6" placeholder="키1&#10;키2&#10;키3"></textarea>
+      </div>
+      <div class="actions">
+        <button id="save">일괄 저장</button>
+        <button id="back" class="ghost">메인으로</button>
+      </div>
+      <hr style="margin: 16px 0; border: none; border-top: 1px solid #d8e2eb;" />
+      <div id="key-list" class="portal-results"></div>
+    </section>
+  </main>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const keysEl = document.getElementById('api-keys');
+    const keyListEl = document.getElementById('key-list');
+
+    async function loadStatus() {
+      const res = await fetch('/api/config/key');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || '상태 조회 실패');
+      statusEl.textContent = json.exists
+        ? `현재 ${json.count}개의 키가 설정되어 있습니다.`
+        : '현재 서비스키가 설정되지 않았습니다.';
+
+      keyListEl.innerHTML = (json.keys || []).map((k) => `
+        <div class="portal-item">
+          <div><strong>#${k.id}</strong> ${k.masked}</div>
+          <div class="actions compact">
+            <button class="ghost" onclick="removeKey(${k.id})">삭제</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function removeKey(id) {
+      try {
+        const res = await fetch(`/api/config/key/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || '삭제 실패');
+        await loadStatus();
+      } catch (e) {
+        alert(`오류: ${e.message}`);
+      }
+    }
+    window.removeKey = removeKey;
+
+    document.getElementById('save').addEventListener('click', async () => {
+      try {
+        const apiKeys = keysEl.value.trim();
+        const res = await fetch('/api/config/key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKeys })
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || '저장 실패');
+        keysEl.value = '';
+        await loadStatus();
+        alert(`서비스키 ${json.count}개가 저장되었습니다.`);
+      } catch (e) {
+        alert(`오류: ${e.message}`);
+      }
+    });
+
+    document.getElementById('back').addEventListener('click', () => {
+      location.href = '/';
+    });
+
+    loadStatus().catch((e) => {
+      statusEl.textContent = `오류: ${e.message}`;
+    });
+  </script>
+</body>
+</html>
