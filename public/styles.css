@@ -102,6 +102,14 @@ input, select, button, textarea {
   border: 1px solid #bfc9d6;
 }
 
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: #eef2f6;
+  color: #7b8796;
+  cursor: not-allowed;
+}
+
 button {
   cursor: pointer;
   border-color: #0f4f95;

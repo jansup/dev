@@ -32,6 +32,12 @@ const chartEl = document.getElementById('chart');
 let sourceMeta = [];
 let lastResult = null;
 let regionCategoryCache = [];
+const typeControlMap = {
+  region: [regionSidoEl, regionEl],
+  sex: [sexEl],
+  age: [ageEl],
+  industry: [majorEl, minorEl, sizeEl],
+};
 
 async function apiGetJson(url, retries = 2) {
   let lastErr;
@@ -63,6 +69,34 @@ function showRowsByType(type) {
     rowsMap.minor.hidden = false;
     rowsMap.size.hidden = false;
   }
+}
+
+function setEnabledByType(type) {
+  const allControls = [regionSidoEl, regionEl, sexEl, ageEl, majorEl, minorEl, sizeEl];
+  const enabled = new Set(typeControlMap[type] || []);
+  allControls.forEach((el) => {
+    el.disabled = !enabled.has(el);
+  });
+}
+
+function clearAllConditionValues() {
+  yearEl.value = '';
+  qEl.value = '';
+
+  regionSidoEl.value = '';
+  fillRegionDetailOptions(regionCategoryCache, '');
+  regionEl.value = '';
+
+  sexEl.value = '';
+  ageEl.value = '';
+  majorEl.value = '';
+  minorEl.value = '';
+  sizeEl.value = '';
+}
+
+function applySourceMode(type) {
+  showRowsByType(type);
+  setEnabledByType(type);
 }
 
 function formatDateTime(iso) {
@@ -282,7 +316,7 @@ async function loadSources() {
   const first = sourceMeta[0];
   if (first) {
     yearEl.placeholder = `예: ${first.latestYear || 2024}`;
-    showRowsByType(first.type);
+    applySourceMode(first.type);
   }
 }
 
@@ -385,12 +419,9 @@ function exportCsv() {
 sourceEl.addEventListener('change', () => {
   const meta = sourceMeta.find((s) => s.key === sourceEl.value);
   if (!meta) return;
-  showRowsByType(meta.type);
+  applySourceMode(meta.type);
+  clearAllConditionValues();
   yearEl.placeholder = `예: ${meta.latestYear || 2024}`;
-  if (meta.type !== 'region') {
-    regionSidoEl.value = '';
-    fillRegionDetailOptions(regionCategoryCache, '');
-  }
 });
 
 regionSidoEl.addEventListener('change', () => {
@@ -404,6 +435,17 @@ document.getElementById('search').addEventListener('click', async () => {
     setFriendlyError('오류', e);
     tbodyEl.innerHTML = '';
     drawBarChart([], '재해자수 상위 10개');
+  }
+});
+
+document.getElementById('reset-filters').addEventListener('click', async () => {
+  try {
+    const meta = sourceMeta.find((s) => s.key === sourceEl.value);
+    clearAllConditionValues();
+    if (meta) applySourceMode(meta.type);
+    await searchStats();
+  } catch (e) {
+    setFriendlyError('오류', e);
   }
 });
 
