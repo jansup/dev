@@ -10,14 +10,15 @@
   <main class="container">
     <header class="hero">
       <div>
-        <h1>산업재해 통계 검색</h1>
-        <p class="sub">고용노동부·공공데이터포털 공식 통계를 기반으로 상세 조건 검색</p>
+        <p class="kicker">고용노동부 · 공공데이터포털</p>
+        <h1>산업재해 통계 조회</h1>
+        <p class="sub">공식 통계 기반 상세 검색 서비스</p>
       </div>
-      <span class="badge-link">공식 통계 기반</span>
+      <span class="badge-link">민원·행정형 UI</span>
     </header>
 
     <section class="panel">
-      <h2>검색 조건</h2>
+      <h2 class="section-title">검색 조건</h2>
       <div class="row">
         <label>통계 유형</label>
         <select id="source"></select>
@@ -30,8 +31,14 @@
 
       <div class="row" id="region-row" hidden>
         <label>지역</label>
-        <input id="region" type="text" list="region-list" placeholder="예: 서울" />
-        <datalist id="region-list"></datalist>
+        <div class="region-pair">
+          <select id="region-sido">
+            <option value="">시/도 선택</option>
+          </select>
+          <select id="region">
+            <option value="">세부지역 선택</option>
+          </select>
+        </div>
       </div>
 
       <div class="row" id="sex-row" hidden>
@@ -80,7 +87,7 @@
     </section>
 
     <section class="panel">
-      <h2>조회 결과</h2>
+      <h2 class="section-title">조회 결과</h2>
       <div id="meta" class="meta"></div>
       <canvas id="chart" width="900" height="260" aria-label="재해자수 차트"></canvas>
       <div class="actions compact">
