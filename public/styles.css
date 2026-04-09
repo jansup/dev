@@ -150,7 +150,8 @@ button.ghost {
   max-width: 100%;
   border: 1px solid var(--line);
   border-radius: 2px;
-  background: #fff;
+  background: linear-gradient(to bottom, #ffffff, #fbfdff);
+  box-shadow: inset 0 0 0 1px #f2f5f9;
 }
 
 .table-wrap { overflow-x: auto; }

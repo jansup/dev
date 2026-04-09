@@ -32,6 +32,7 @@ const chartEl = document.getElementById('chart');
 let sourceMeta = [];
 let lastResult = null;
 let regionCategoryCache = [];
+let lastChartPayload = null;
 const typeControlMap = {
   region: [regionSidoEl, regionEl],
   sex: [sexEl],
@@ -220,35 +221,63 @@ function applyRegionSidoClientFilterIfNeeded(result) {
   };
 }
 
-function drawBarChart(points, title) {
-  const ctx = chartEl.getContext('2d');
-  const w = chartEl.width;
-  const h = chartEl.height;
+const CHART_COLORS = ['#005a9c', '#0e77c6', '#58a6e7', '#83c0f2', '#2f8f9d', '#6ca8af', '#4f6fad', '#7f8cc9'];
 
+function fmtNum(v) {
+  return Number(v || 0).toLocaleString('ko-KR');
+}
+
+function ellipsize(text, maxLen) {
+  const t = String(text || '');
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, Math.max(1, maxLen - 1))}…`;
+}
+
+function getChartCtx() {
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const width = chartEl.clientWidth || 900;
+  const height = 260;
+  if (chartEl.width !== Math.floor(width * dpr) || chartEl.height !== Math.floor(height * dpr)) {
+    chartEl.width = Math.floor(width * dpr);
+    chartEl.height = Math.floor(height * dpr);
+  }
+  const ctx = chartEl.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: width, h: height };
+}
+
+function clearChart(title) {
+  const { ctx, w, h } = getChartCtx();
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#2b3e56';
+  ctx.font = '700 13px "Noto Sans KR", sans-serif';
+  ctx.fillText(title, 14, 20);
+  return { ctx, w, h };
+}
 
-  ctx.fillStyle = '#415a77';
-  ctx.font = '14px sans-serif';
-  ctx.fillText(title, 16, 24);
+function drawEmptyChart(title = '차트') {
+  const { ctx } = clearChart(title);
+  ctx.fillStyle = '#6c7a8a';
+  ctx.font = '12px "Noto Sans KR", sans-serif';
+  ctx.fillText('표시할 데이터가 없습니다.', 14, 44);
+}
 
-  if (!points || points.length === 0) {
-    ctx.fillStyle = '#6c757d';
-    ctx.fillText('차트 데이터가 없습니다.', 16, 50);
-    return;
-  }
-
-  const left = 60;
-  const right = w - 20;
-  const top = 40;
-  const bottom = h - 30;
+function drawVerticalBars(points, title) {
+  if (!points?.length) return drawEmptyChart(title);
+  const { ctx, w, h } = clearChart(title);
+  const left = 44;
+  const right = w - 14;
+  const top = 34;
+  const bottom = h - 82;
   const maxVal = Math.max(...points.map((p) => Number(p.value || 0)), 1);
-  const barAreaW = right - left;
-  const barAreaH = bottom - top;
-  const barW = Math.max(10, Math.floor(barAreaW / points.length) - 8);
+  const slot = (right - left) / points.length;
+  const barW = Math.max(8, slot - 8);
+  const rotate = slot < 56;
+  const labelAngle = rotate ? -Math.PI / 4.5 : 0;
 
-  ctx.strokeStyle = '#d8e2eb';
+  ctx.strokeStyle = '#d8dfe7';
   ctx.beginPath();
   ctx.moveTo(left, top);
   ctx.lineTo(left, bottom);
@@ -256,19 +285,186 @@ function drawBarChart(points, title) {
   ctx.stroke();
 
   points.forEach((p, i) => {
-    const x = left + i * (barAreaW / points.length) + 4;
     const val = Number(p.value || 0);
-    const bh = Math.max(1, (val / maxVal) * (barAreaH - 10));
+    const bh = Math.max(1, ((bottom - top - 8) * val) / maxVal);
+    const x = left + i * slot + (slot - barW) / 2;
     const y = bottom - bh;
-
-    ctx.fillStyle = '#005f73';
+    ctx.fillStyle = CHART_COLORS[i % CHART_COLORS.length];
     ctx.fillRect(x, y, barW, bh);
 
-    ctx.fillStyle = '#0d1b2a';
-    ctx.font = '10px sans-serif';
-    const label = String(p.label || '').slice(0, 10);
-    ctx.fillText(label, x, bottom + 12);
+    ctx.fillStyle = '#1f2937';
+    ctx.font = '600 10px "Noto Sans KR", sans-serif';
+    const valueText = fmtNum(val);
+    const valueWidth = ctx.measureText(valueText).width;
+    const valueY = Math.max(30, y - 4);
+    ctx.fillText(valueText, x + Math.max(0, (barW - valueWidth) / 2), valueY);
+
+    const label = String(p.label || '');
+    ctx.save();
+    // 라벨을 2단 높이로 교차 배치해 밀집 구간 겹침을 방지
+    const staggerY = rotate ? (i % 2 === 0 ? 16 : 28) : (i % 2 === 0 ? 14 : 26);
+    ctx.translate(x + barW / 2, bottom + staggerY);
+    ctx.rotate(labelAngle);
+    ctx.fillStyle = '#334155';
+    ctx.font = '11px "Noto Sans KR", sans-serif';
+    if (rotate) {
+      ctx.textAlign = 'left';
+      ctx.fillText(label, 0, 0);
+    } else {
+      const short = ellipsize(label, 8);
+      ctx.textAlign = 'center';
+      ctx.fillText(short, 0, 0);
+    }
+    ctx.restore();
   });
+}
+
+function drawHorizontalBars(points, title) {
+  if (!points?.length) return drawEmptyChart(title);
+  const { ctx, w, h } = clearChart(title);
+  const left = 110;
+  const right = w - 26;
+  const top = 32;
+  const bottom = h - 10;
+  const maxVal = Math.max(...points.map((p) => Number(p.value || 0)), 1);
+  const slot = (bottom - top) / points.length;
+  const barH = Math.max(8, slot - 6);
+
+  points.forEach((p, i) => {
+    const val = Number(p.value || 0);
+    const bw = ((right - left) * val) / maxVal;
+    const y = top + i * slot + (slot - barH) / 2;
+    ctx.fillStyle = CHART_COLORS[i % CHART_COLORS.length];
+    ctx.fillRect(left, y, bw, barH);
+
+    ctx.fillStyle = '#334155';
+    ctx.font = '11px "Noto Sans KR", sans-serif';
+    ctx.fillText(ellipsize(p.label, 10), 8, y + barH - 1);
+
+    const valueText = fmtNum(val);
+    const valueWidth = ctx.measureText(valueText).width;
+    if (bw > valueWidth + 12) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(valueText, left + bw - valueWidth - 6, y + barH - 1);
+    } else {
+      ctx.fillStyle = '#1f2937';
+      ctx.fillText(valueText, Math.min(right - valueWidth, left + bw + 4), y + barH - 1);
+    }
+  });
+}
+
+function drawDonut(points, title) {
+  if (!points?.length) return drawEmptyChart(title);
+  const { ctx, w, h } = clearChart(title);
+  const total = points.reduce((s, p) => s + Number(p.value || 0), 0) || 1;
+  const cx = Math.min(130, w * 0.3);
+  const cy = h * 0.58;
+  const outer = 72;
+  const inner = 40;
+  let start = -Math.PI / 2;
+
+  points.forEach((p, i) => {
+    const ratio = Number(p.value || 0) / total;
+    const end = start + ratio * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, outer, start, end);
+    ctx.closePath();
+    ctx.fillStyle = CHART_COLORS[i % CHART_COLORS.length];
+    ctx.fill();
+    start = end;
+  });
+
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  ctx.arc(cx, cy, inner, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+
+  ctx.fillStyle = '#334155';
+  ctx.font = '600 11px "Noto Sans KR", sans-serif';
+  points.forEach((p, i) => {
+    const y = 48 + i * 18;
+    const x = Math.max(220, w * 0.52);
+    ctx.fillStyle = CHART_COLORS[i % CHART_COLORS.length];
+    ctx.fillRect(x, y - 9, 10, 10);
+    ctx.fillStyle = '#334155';
+    ctx.fillText(`${ellipsize(p.label, 8)}: ${fmtNum(p.value)}`, x + 16, y);
+  });
+}
+
+function drawLineChart(points, title) {
+  if (!points?.length) return drawEmptyChart(title);
+  const { ctx, w, h } = clearChart(title);
+  const left = 50;
+  const right = w - 20;
+  const top = 34;
+  const bottom = h - 36;
+  const maxVal = Math.max(...points.map((p) => Number(p.value || 0)), 1);
+  const stepX = points.length > 1 ? (right - left) / (points.length - 1) : 0;
+  const maxLabels = Math.max(1, Math.floor((right - left) / 50));
+  const skip = Math.max(1, Math.ceil(points.length / maxLabels));
+
+  ctx.strokeStyle = '#d8dfe7';
+  ctx.beginPath();
+  ctx.moveTo(left, top);
+  ctx.lineTo(left, bottom);
+  ctx.lineTo(right, bottom);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#005a9c';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const x = left + i * stepX;
+    const y = bottom - ((bottom - top - 4) * Number(p.value || 0)) / maxVal;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.lineWidth = 1;
+
+  points.forEach((p, i) => {
+    const x = left + i * stepX;
+    const y = bottom - ((bottom - top - 4) * Number(p.value || 0)) / maxVal;
+    ctx.fillStyle = '#005a9c';
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#1f2937';
+    ctx.font = '600 10px "Noto Sans KR", sans-serif';
+    const valueText = fmtNum(p.value);
+    const shift = i % 2 === 0 ? -8 : -18;
+    ctx.fillText(valueText, x - ctx.measureText(valueText).width / 2, Math.max(28, y + shift));
+    if (i % skip === 0) {
+      ctx.fillStyle = '#334155';
+      ctx.font = '11px "Noto Sans KR", sans-serif';
+      ctx.fillText(String(p.label), x - 10, bottom + 12);
+    }
+  });
+}
+
+function drawChartByDataType(result) {
+  if (!result) return drawEmptyChart('통계 차트');
+  lastChartPayload = { mode: 'type', result };
+  const type = result.type;
+  if (type === 'sex') {
+    const pts = (result.data || []).map((x) => ({ label: x.category, value: x.casualties }));
+    return drawDonut(pts, '성별 재해자 비중');
+  }
+  if (type === 'age') {
+    const pts = (result.data || []).map((x) => ({ label: x.category, value: x.casualties }));
+    return drawVerticalBars(pts, '연령대별 재해자수');
+  }
+  if (type === 'region') {
+    const pts = (result.chartData || []).map((x) => ({ label: x.label, value: x.value }));
+    return drawHorizontalBars(pts, '지역별 재해자수 상위');
+  }
+  if (type === 'industry') {
+    const pts = (result.chartData || []).map((x) => ({ label: x.label, value: x.value }));
+    return drawHorizontalBars(pts, '업종별 재해자수 상위');
+  }
+  return drawVerticalBars(result.chartData || [], '재해자수');
 }
 
 function renderTable(type, data) {
@@ -357,7 +553,7 @@ async function searchStats() {
 
   applyFilterOptions(normalized.type, normalized.filterOptions || {});
   renderTable(normalized.type, normalized.data);
-  drawBarChart(normalized.chartData || [], '재해자수 상위 10개');
+  drawChartByDataType(normalized);
 }
 
 async function loadTrend() {
@@ -377,7 +573,8 @@ async function loadTrend() {
   const json = await apiGetJson(`/api/trend?${params.toString()}`);
 
   const points = json.series.map((x) => ({ label: String(x.year), value: x.casualties }));
-  drawBarChart(points, `연도별 추이: ${json.category}`);
+  lastChartPayload = { mode: 'trend', points, title: `연도별 추이: ${json.category}` };
+  drawLineChart(points, `연도별 추이: ${json.category}`);
 }
 
 function exportCsv() {
@@ -434,7 +631,7 @@ document.getElementById('search').addEventListener('click', async () => {
   } catch (e) {
     setFriendlyError('오류', e);
     tbodyEl.innerHTML = '';
-    drawBarChart([], '재해자수 상위 10개');
+    drawEmptyChart('재해자수 차트');
   }
 });
 
@@ -476,3 +673,14 @@ document.getElementById('download').addEventListener('click', exportCsv);
     setFriendlyError('초기화 오류', e);
   }
 })();
+
+window.addEventListener('resize', () => {
+  if (!lastChartPayload) return;
+  if (lastChartPayload.mode === 'type') {
+    drawChartByDataType(lastChartPayload.result);
+    return;
+  }
+  if (lastChartPayload.mode === 'trend') {
+    drawLineChart(lastChartPayload.points, lastChartPayload.title);
+  }
+});
